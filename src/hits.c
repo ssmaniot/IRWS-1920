@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
   FILE *pdata;
   char fname[FNAME];
   char dir[DNAME];
-  /*   Matrix L            Matrix L^T         */
+  /*   Matrix L         Matrix L^T         */
   char row_ptr_p[PATH], row_ptr_tp[PATH];
   char col_ind_p[PATH], col_ind_tp[PATH];
   char lcsr_data_p[PATH];
@@ -39,8 +39,8 @@ int main(int argc, char *argv[]) {
   int i;
 
   /* LCSR matrix representation */
-  int *col_ind, *col_ind_t;
-  int *row_ptr, *row_ptr_t;
+  int *col_ind = NULL, *col_ind_t = NULL;
+  int *row_ptr = NULL, *row_ptr_t = NULL;
 
   /* HITS computation data */
   double *a, *a_new;
@@ -258,17 +258,17 @@ int main(int argc, char *argv[]) {
   /* mmapping the CSR matrix data from files */
   err = 0;
   if ((row_ptr = (int *)mmap_data(row_ptr_p, sizeof(int), no_nodes + 1)) ==
-      NULL)
-    ++i;
+      MAP_FAILED)
+    ++err;
   else if ((row_ptr_t = (int *)mmap_data(row_ptr_tp, sizeof(int),
-                                         no_nodes + 1)) == NULL)
-    ++i;
+                                         no_nodes + 1)) == MAP_FAILED)
+    ++err;
   else if ((col_ind = (int *)mmap_data(col_ind_p, sizeof(int), no_edges)) ==
-           NULL)
-    ++i;
+           MAP_FAILED)
+    ++err;
   else if ((col_ind_t = (int *)mmap_data(col_ind_tp, sizeof(int), no_edges)) ==
-           NULL)
-    ++i;
+           MAP_FAILED)
+    ++err;
 
   if (err > 0) {
     fprintf(stderr, " [ERROR] data could not be mmapped from memory.\n");
@@ -276,18 +276,11 @@ int main(int argc, char *argv[]) {
             "         Data is corrupted, the folder will be destroyed.\n");
     delete_folder(dir);
     /* Un-mmaping mmapped files */
-    switch (err) {
-    case 1:
-      do {
-        munmap(row_ptr, (no_nodes + 1) * sizeof(int));
-      case 2:
-        munmap(row_ptr_t, (no_nodes + 1) * sizeof(int));
-      case 3:
-        munmap(col_ind, no_edges * sizeof(int));
-      case 4:
-        munmap(col_ind_t, no_edges * sizeof(int));
-      } while (--err > 0);
-    }
+    if (row_ptr == MAP_FAILED) munmap(row_ptr, (no_nodes + 1) * sizeof(int));
+    if (row_ptr_t == MAP_FAILED)
+      munmap(row_ptr_t, (no_nodes + 1) * sizeof(int));
+    if (col_ind == MAP_FAILED) munmap(col_ind, no_edges * sizeof(int));
+    if (col_ind_t == MAP_FAILED) munmap(col_ind_t, no_edges * sizeof(int));
     exit(EXIT_FAILURE);
   }
 

@@ -38,12 +38,12 @@ int main(int argc, char *argv[]) {
   int i, j;
 
   /* CSR matrix representation */
-  double *val;
-  int *col_ind;
-  int *row_ptr;
+  double *val = NULL;
+  int *col_ind = NULL;
+  int *row_ptr = NULL;
 
   /* Pagerank computation data */
-  int *danglings;
+  int *danglings = NULL;
   int no_danglings;
   double danglings_dot_product;
   double *p, *p_new;
@@ -258,19 +258,20 @@ int main(int argc, char *argv[]) {
          no_danglings);
 
   /* mmapping the CSR matrix data from files */
-  i = 0;
-  err =
-      (((row_ptr = (int *)mmap_data(row_ptr_p, sizeof(int), no_nodes + 1)) !=
-        NULL) &&
-       ++i) &&
-      (((col_ind = (int *)mmap_data(col_ind_p, sizeof(int), no_edges)) !=
-        NULL) &&
-       ++i) &&
-      (((val = (double *)mmap_data(val_p, sizeof(double), no_edges)) != NULL) &&
-       ++i) &&
-      (((danglings = (int *)mmap_data(danglings_p, sizeof(int),
-                                      no_danglings)) != NULL) &&
-       ++i);
+  err = 0;
+
+  if ((row_ptr = (int *)mmap_data(row_ptr_p, sizeof(int), no_nodes + 1)) ==
+      MAP_FAILED)
+    ++err;
+  else if ((col_ind = (int *)mmap_data(col_ind_p, sizeof(int), no_edges)) ==
+           MAP_FAILED)
+    ++err;
+  else if ((val = (double *)mmap_data(val_p, sizeof(double), no_edges)) ==
+           MAP_FAILED)
+    ++err;
+  else if ((danglings = (int *)mmap_data(danglings_p, sizeof(int),
+                                         no_danglings)) == MAP_FAILED)
+    ++err;
 
   if (err == 0) {
     fprintf(stderr, " [ERROR] Data could not be mmapped from memory.\n");
@@ -278,22 +279,10 @@ int main(int argc, char *argv[]) {
             "         Data is corrupted, the folder will be destroyed.\n");
     delete_folder(dir);
     /* Un-mmapping mmapped files */
-    do {
-      switch (i) {
-      case 1:
-        munmap(row_ptr, (no_nodes + 1) * sizeof(int));
-        break;
-      case 2:
-        munmap(col_ind, no_edges * sizeof(int));
-        break;
-      case 3:
-        munmap(val, no_edges * sizeof(double));
-        break;
-      case 4:
-        munmap(col_ind, no_nodes * sizeof(int));
-        break;
-      }
-    } while (--i > 0);
+    if (row_ptr == MAP_FAILED) munmap(row_ptr, (no_nodes + 1) * sizeof(int));
+    if (col_ind == MAP_FAILED) munmap(col_ind, no_edges * sizeof(int));
+    if (val == MAP_FAILED) munmap(val, no_edges * sizeof(double));
+    if (danglings == MAP_FAILED) munmap(danglings, no_danglings * sizeof(int));
     exit(EXIT_FAILURE);
   }
 
