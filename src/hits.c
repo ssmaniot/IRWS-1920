@@ -15,6 +15,11 @@
 
 typedef CSR_data LCSR_data;
 
+void perform_compression(const char dataset_path[FNAME], char dir[DNAME],
+                         char row_ptr_p[PATH], char row_ptr_tp[PATH],
+                         char col_ind_p[PATH], char col_ind_tp[PATH],
+                         char lcsr_data_p[PATH], LCSR_data *lcsr_data);
+
 int main(int argc, char *argv[]) {
   /* Data to save/load LCSR matrix */
   FILE *pdata;
@@ -30,12 +35,10 @@ int main(int argc, char *argv[]) {
   /* Reading data from input file */
   FILE *pf;
   int no_nodes, no_edges;
-  char *s = NULL;
-  size_t slen = 0;
   ssize_t bytes;
+
+  /* HITS computation */
   int ri, ci;
-  int *from, *to;
-  int f, t;
   int i;
 
   /* LCSR matrix representation */
@@ -99,152 +102,8 @@ int main(int argc, char *argv[]) {
   /* Check if input data has already been compressed.
    * If data has NOT yet been compressed, then perform compression */
   if (stat(dir, &st) == -1) {
-    printf("Input file data \"%s\" is not compressed, ready to perform "
-           "compression...\n\n",
-           argv[1]);
-    mkdir(dir, 0700);
-
-    if ((pf = fopen(argv[1], "r")) == NULL) {
-      fprintf(stderr, " [ERROR] cannot open input file \"%s\"\n", argv[1]);
-      exit(EXIT_FAILURE);
-    }
-
-    /* Parsing input file header */
-    printf("Parsing input data...\n");
-    bytes = getline(&s, &slen, pf);
-    bytes = getline(&s, &slen, pf);
-    bytes = getline(&s, &slen, pf);
-    sscanf(s, "# Nodes: %d Edges: %d", &no_nodes, &no_edges);
-    printf("This graph has %d nodes and %d edges\n", no_nodes, no_edges);
-    bytes = getline(&s, &slen, pf);
-
-    lcsr_data.no_nodes = no_nodes;
-    lcsr_data.no_edges = no_edges;
-
-    /* Reading data from input file */
-    i = 0;
-    from = (int *)malloc(sizeof(int) * no_edges);
-    to = (int *)malloc(sizeof(int) * no_edges);
-    while ((bytes = getline(&s, &slen, pf)) != -1) {
-      sscanf(s, "%d %d", from + i, to + i);
-      if (i % 10 == 0)
-        printf("\rEdge %d/%d", i, no_edges);
-      ++i;
-    }
-    printf("\rEdge %d/%d\n", i, no_edges);
-    printf("Done\n\n");
-    fclose(pf);
-    free(s);
-
-    /* LCSR matrix initialization */
-    col_ind = (int *)malloc(sizeof(int) * no_edges);
-    row_ptr = (int *)malloc(sizeof(int) * (no_nodes + 1));
-    ri = 0;
-    row_ptr[ri] = 0;
-    ci = 0;
-
-    /* Writing data in LCSR matrix */
-    for (ci = 0; ci < no_edges; ++ci) {
-      f = from[ci];
-      t = to[ci];
-      if (f > ri) {
-        for (i = ri + 1; i <= f; ++i)
-          row_ptr[i] = ci;
-        ri = f;
-      }
-      col_ind[ci] = t;
-    }
-    while (ri < no_nodes)
-      row_ptr[++ri] = ci;
-
-#ifdef DEBUG
-    printf("LCSR matrix\n");
-    printf("---------------------\n");
-
-    printf("col_ind: [ ");
-    for (i = 0; i < no_edges; ++i)
-      printf("%d ", col_ind[i]);
-    printf("]\n");
-
-    printf("row_ptr: [ ");
-    for (i = 0; i < no_nodes + 1; ++i)
-      printf("%d ", row_ptr[i]);
-    printf("]\n\n");
-#endif
-
-    printf("Sorting edges for transposed matrix...\n");
-    sort_input_data(from, to, no_edges);
-    printf("Done.\n\n");
-
-    /* Transposed LCSR matrix initialization */
-    col_ind_t = (int *)malloc(sizeof(int) * no_edges);
-    row_ptr_t = (int *)malloc(sizeof(int) * (no_nodes + 1));
-    ri = 0;
-    row_ptr_t[ri] = 0;
-    ci = 0;
-
-    /* Writing data in Transposed LCSR matrix */
-    for (ci = 0; ci < no_edges; ++ci) {
-      f = from[ci];
-      t = to[ci];
-      if (t > ri) {
-        for (i = ri + 1; i <= t; ++i)
-          row_ptr_t[i] = ci;
-        ri = t;
-      }
-      col_ind_t[ci] = f;
-    }
-    while (ri < no_nodes)
-      row_ptr_t[++ri] = ci;
-
-#ifdef DEBUG
-    printf("Transposed LCSR matrix\n");
-    printf("---------------------\n");
-
-    printf("col_ind_t: [ ");
-    for (i = 0; i < no_edges; ++i)
-      printf("%d ", col_ind_t[i]);
-    printf("]\n");
-
-    printf("row_ptr_t: [ ");
-    for (i = 0; i < no_nodes + 1; ++i)
-      printf("%d ", row_ptr_t[i]);
-    printf("]\n\n");
-#endif
-
-    /* Writing data back to memory */
-    err = (write_data(row_ptr_p, (void *)row_ptr, sizeof(int), no_nodes + 1) ==
-           EXIT_FAILURE) ||
-          (write_data(col_ind_p, (void *)col_ind, sizeof(int), no_edges) ==
-           EXIT_FAILURE) ||
-          (write_data(row_ptr_tp, (void *)row_ptr_t, sizeof(int),
-                      no_nodes + 1) == EXIT_FAILURE) ||
-          (write_data(col_ind_tp, (void *)col_ind_t, sizeof(int), no_edges) ==
-           EXIT_FAILURE) ||
-          (write_data(lcsr_data_p, (void *)&lcsr_data, sizeof(LCSR_data), 1) ==
-           EXIT_FAILURE);
-
-    /* Input data */
-    free(from);
-    free(to);
-    from = NULL;
-    to = NULL;
-    /* CSR data structure */
-    free(col_ind);
-    free(row_ptr);
-    free(col_ind_t);
-    free(row_ptr_t);
-    col_ind = NULL;
-    row_ptr = NULL;
-    col_ind_t = NULL;
-    row_ptr_t = NULL;
-
-    /* Manage error from writing data to memory */
-    if (err) {
-      delete_folder(dir);
-      fprintf(stderr, " [ERROR] data could not be written in memory.\n");
-      exit(EXIT_FAILURE);
-    }
+    perform_compression(argv[1], dir, row_ptr_p, row_ptr_tp, col_ind_p,
+                        col_ind_tp, lcsr_data_p, &lcsr_data);
   }
 
   /* Reading LCSR matrix metadata info from file */
@@ -252,6 +111,7 @@ int main(int argc, char *argv[]) {
   pdata = fopen(lcsr_data_p, "rb");
   bytes = fread(&no_nodes, sizeof(lcsr_data.no_nodes), 1, pdata);
   bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pdata);
+  (void)bytes;
   fclose(pdata);
   printf("no_nodes: %d\nno_edges: %d\n\n", no_nodes, no_edges);
 
@@ -291,26 +151,30 @@ int main(int argc, char *argv[]) {
   printf("---------------------\n");
 
   printf("col_ind: [ ");
-  for (i = 0; i < no_edges; ++i)
+  for (i = 0; i < no_edges; ++i) {
     printf("%d ", col_ind[i]);
+  }
   printf("]\n");
 
   printf("row_ptr: [ ");
-  for (i = 0; i < no_nodes + 1; ++i)
+  for (i = 0; i < no_nodes + 1; ++i) {
     printf("%d ", row_ptr[i]);
+  }
   printf("]\n\n");
 
   printf("Transposed LCSR matrix\n");
   printf("---------------------\n");
 
   printf("col_ind_t: [ ");
-  for (i = 0; i < no_edges; ++i)
+  for (i = 0; i < no_edges; ++i) {
     printf("%d ", col_ind_t[i]);
+  }
   printf("]\n");
 
   printf("row_ptr_t: [ ");
-  for (i = 0; i < no_nodes + 1; ++i)
+  for (i = 0; i < no_nodes + 1; ++i) {
     printf("%d ", row_ptr_t[i]);
+  }
   printf("]\n\n");
 #endif
 
@@ -345,24 +209,22 @@ int main(int argc, char *argv[]) {
     /* a_new = Lt @ h, h_new = L @ a */
     for (ri = 0; ri < no_nodes; ++ri) {
       a_new[ri] = 0.;
-      for (ci = row_ptr_t[ri]; ci < row_ptr_t[ri + 1]; ++ci)
+      for (ci = row_ptr_t[ri]; ci < row_ptr_t[ri + 1]; ++ci) {
         a_new[ri] += h[col_ind_t[ci]];
+      }
       h_new[ri] = .0;
-      for (ci = row_ptr[ri]; ci < row_ptr[ri + 1]; ++ci)
+      for (ci = row_ptr[ri]; ci < row_ptr[ri + 1]; ++ci) {
         h_new[ri] += a[col_ind[ci]];
+      }
     }
 
     /* Normalization step */
     sum = 0.;
-    for (i = 0; i < no_nodes; ++i)
-      sum += a_new[i];
-    for (i = 0; i < no_nodes; ++i)
-      a_new[i] /= sum;
+    for (i = 0; i < no_nodes; ++i) sum += a_new[i];
+    for (i = 0; i < no_nodes; ++i) a_new[i] /= sum;
     sum = 0.;
-    for (i = 0; i < no_nodes; ++i)
-      sum += h_new[i];
-    for (i = 0; i < no_nodes; ++i)
-      h_new[i] /= sum;
+    for (i = 0; i < no_nodes; ++i) sum += h_new[i];
+    for (i = 0; i < no_nodes; ++i) h_new[i] /= sum;
 
     /* Computing distance between current and old a/h */
     a_dist = 0.;
@@ -394,12 +256,14 @@ int main(int argc, char *argv[]) {
 
   printf("Proof of correctness:\n");
   sum = 0.;
-  for (i = 0; i < no_nodes; ++i)
+  for (i = 0; i < no_nodes; ++i) {
     sum += a[i];
+  }
   printf("sum(a) = %f\n", sum);
   sum = 0.;
-  for (i = 0; i < no_nodes; ++i)
+  for (i = 0; i < no_nodes; ++i) {
     sum += h[i];
+  }
   printf("sum(h) = %f\n\n", sum);
 
   elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
@@ -563,12 +427,182 @@ int main(int argc, char *argv[]) {
 
   /* Manage error from writing data to memory */
   if (err) {
-    if (stat(fauth, &st) == 0)
-      remove(fauth);
+    if (stat(fauth, &st) == 0) remove(fauth);
     fprintf(stderr,
             " [ERROR] PageRank result could not be written in memory.\n");
     exit(EXIT_FAILURE);
   }
 
   exit(EXIT_SUCCESS);
+}
+
+void perform_compression(const char dataset_path[FNAME], char dir[DNAME],
+                         char row_ptr_p[PATH], char row_ptr_tp[PATH],
+                         char col_ind_p[PATH], char col_ind_tp[PATH],
+                         char lcsr_data_p[PATH], LCSR_data *lcsr_data) {
+  /* Reading data from input file */
+  FILE *pf;
+  int no_nodes, no_edges;
+  char *s = NULL;
+  size_t slen = 0;
+  ssize_t bytes;
+  int ri, ci;
+  int *from, *to;
+  int f, t;
+  int i;
+  int err;
+
+  /* LCSR matrix representation */
+  int *col_ind, *col_ind_t;
+  int *row_ptr, *row_ptr_t;
+  printf(
+      "Input file data \"%s\" is not compressed, ready to perform "
+      "compression...\n\n",
+      dataset_path);
+  mkdir(dir, 0700);
+
+  if ((pf = fopen(dataset_path, "r")) == NULL) {
+    fprintf(stderr, " [ERROR] cannot open input file \"%s\"\n", dataset_path);
+    exit(EXIT_FAILURE);
+  }
+
+  /* Parsing input file header */
+  printf("Parsing input data...\n");
+  bytes = getline(&s, &slen, pf);
+  bytes = getline(&s, &slen, pf);
+  bytes = getline(&s, &slen, pf);
+  sscanf(s, "# Nodes: %d Edges: %d", &no_nodes, &no_edges);
+  printf("This graph has %d nodes and %d edges\n", no_nodes, no_edges);
+  bytes = getline(&s, &slen, pf);
+
+  lcsr_data->no_nodes = no_nodes;
+  lcsr_data->no_edges = no_edges;
+
+  /* Reading data from input file */
+  i = 0;
+  from = (int *)malloc(sizeof(int) * no_edges);
+  to = (int *)malloc(sizeof(int) * no_edges);
+  while ((bytes = getline(&s, &slen, pf)) != -1) {
+    sscanf(s, "%d %d", from + i, to + i);
+    if (i % 10 == 0) printf("\rEdge %d/%d", i, no_edges);
+    ++i;
+  }
+  printf("\rEdge %d/%d\n", i, no_edges);
+  printf("Done\n\n");
+  fclose(pf);
+  free(s);
+
+  /* LCSR matrix initialization */
+  col_ind = (int *)malloc(sizeof(int) * no_edges);
+  row_ptr = (int *)malloc(sizeof(int) * (no_nodes + 1));
+  ri = 0;
+  row_ptr[ri] = 0;
+  ci = 0;
+
+  /* Writing data in LCSR matrix */
+  for (ci = 0; ci < no_edges; ++ci) {
+    f = from[ci];
+    t = to[ci];
+    if (f > ri) {
+      for (i = ri + 1; i <= f; ++i) {
+        row_ptr[i] = ci;
+      }
+      ri = f;
+    }
+    col_ind[ci] = t;
+  }
+  while (ri < no_nodes) row_ptr[++ri] = ci;
+
+#ifdef DEBUG
+  printf("LCSR matrix\n");
+  printf("---------------------\n");
+
+  printf("col_ind: [ ");
+  for (i = 0; i < no_edges; ++i) {
+    printf("%d ", col_ind[i]);
+  }
+  printf("]\n");
+
+  printf("row_ptr: [ ");
+  for (i = 0; i < no_nodes + 1; ++i) {
+    printf("%d ", row_ptr[i]);
+  }
+  printf("]\n\n");
+#endif
+
+  printf("Sorting edges for transposed matrix...\n");
+  sort_input_data(from, to, no_edges);
+  printf("Done.\n\n");
+
+  /* Transposed LCSR matrix initialization */
+  col_ind_t = (int *)malloc(sizeof(int) * no_edges);
+  row_ptr_t = (int *)malloc(sizeof(int) * (no_nodes + 1));
+  ri = 0;
+  row_ptr_t[ri] = 0;
+  ci = 0;
+
+  /* Writing data in Transposed LCSR matrix */
+  for (ci = 0; ci < no_edges; ++ci) {
+    f = from[ci];
+    t = to[ci];
+    if (t > ri) {
+      for (i = ri + 1; i <= t; ++i) {
+        row_ptr_t[i] = ci;
+      }
+      ri = t;
+    }
+    col_ind_t[ci] = f;
+  }
+  while (ri < no_nodes) row_ptr_t[++ri] = ci;
+
+#ifdef DEBUG
+  printf("Transposed LCSR matrix\n");
+  printf("---------------------\n");
+
+  printf("col_ind_t: [ ");
+  for (i = 0; i < no_edges; ++i) {
+    printf("%d ", col_ind_t[i]);
+  }
+  printf("]\n");
+
+  printf("row_ptr_t: [ ");
+  for (i = 0; i < no_nodes + 1; ++i) {
+    printf("%d ", row_ptr_t[i]);
+  }
+  printf("]\n\n");
+#endif
+
+  /* Writing data back to memory */
+  err = (write_data(row_ptr_p, (void *)row_ptr, sizeof(int), no_nodes + 1) ==
+         EXIT_FAILURE) ||
+        (write_data(col_ind_p, (void *)col_ind, sizeof(int), no_edges) ==
+         EXIT_FAILURE) ||
+        (write_data(row_ptr_tp, (void *)row_ptr_t, sizeof(int), no_nodes + 1) ==
+         EXIT_FAILURE) ||
+        (write_data(col_ind_tp, (void *)col_ind_t, sizeof(int), no_edges) ==
+         EXIT_FAILURE) ||
+        (write_data(lcsr_data_p, (void *)lcsr_data, sizeof(LCSR_data), 1) ==
+         EXIT_FAILURE);
+
+  /* Input data */
+  free(from);
+  free(to);
+  from = NULL;
+  to = NULL;
+  /* CSR data structure */
+  free(col_ind);
+  free(row_ptr);
+  free(col_ind_t);
+  free(row_ptr_t);
+  col_ind = NULL;
+  row_ptr = NULL;
+  col_ind_t = NULL;
+  row_ptr_t = NULL;
+
+  /* Manage error from writing data to memory */
+  if (err) {
+    delete_folder(dir);
+    fprintf(stderr, " [ERROR] data could not be written in memory.\n");
+    exit(EXIT_FAILURE);
+  }
 }

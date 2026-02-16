@@ -96,9 +96,10 @@ int main(int argc, char *argv[]) {
   /* Check if input data has already been compressed.
    * If data has NOT yet been compressed, then perform compression */
   if (stat(dir, &st) == -1) {
-    printf("Input file data \"%s\" is not compressed, ready to perform "
-           "compression...\n\n",
-           argv[1]);
+    printf(
+        "Input file data \"%s\" is not compressed, ready to perform "
+        "compression...\n\n",
+        argv[1]);
     begin = clock();
     mkdir(dir, 0700);
 
@@ -127,8 +128,7 @@ int main(int argc, char *argv[]) {
     while ((bytes = getline(&s, &slen, pf)) != -1) {
       sscanf(s, "%d %d", from + i, to + i);
       out_links[from[i]] += 1;
-      if (i % 10 == 0)
-        printf("\rEdge %d/%d", i, no_edges);
+      if (i % 10 == 0) printf("\rEdge %d/%d", i, no_edges);
       ++i;
     }
     printf("\rEdge %d/%d\n", i, no_edges);
@@ -139,13 +139,11 @@ int main(int argc, char *argv[]) {
     /* Keeping track of danglings data */
     no_danglings = 0;
     for (i = 0; i < no_nodes; ++i)
-      if (out_links[i] == 0)
-        ++no_danglings;
+      if (out_links[i] == 0) ++no_danglings;
     danglings = (int *)malloc(sizeof(int) * no_danglings);
     j = 0;
     for (i = 0; i < no_nodes; ++i)
-      if (out_links[i] == 0)
-        danglings[j++] = i;
+      if (out_links[i] == 0) danglings[j++] = i;
 
     csr_data.no_danglings = no_danglings;
 
@@ -166,15 +164,13 @@ int main(int argc, char *argv[]) {
       f = from[ci];
       t = to[ci];
       if (t > ri) {
-        for (i = ri + 1; i <= t; ++i)
-          row_ptr[i] = ci;
+        for (i = ri + 1; i <= t; ++i) row_ptr[i] = ci;
         ri = t;
       }
       val[ci] = 1. / (double)out_links[f];
       col_ind[ci] = f;
     }
-    while (ri < no_nodes)
-      row_ptr[++ri] = ci;
+    while (ri < no_nodes) row_ptr[++ri] = ci;
 
     printf("CSR matrix filled\n");
 
@@ -182,24 +178,20 @@ int main(int argc, char *argv[]) {
     printf("CSR Transposed matrix\n");
     printf("---------------------\n");
     printf("val:     [ ");
-    for (i = 0; i < no_edges; ++i)
-      printf("%.3f ", val[i]);
+    for (i = 0; i < no_edges; ++i) printf("%.3f ", val[i]);
     printf("]\n");
 
     printf("col_ind: [ ");
-    for (i = 0; i < no_edges; ++i)
-      printf("%d ", col_ind[i]);
+    for (i = 0; i < no_edges; ++i) printf("%d ", col_ind[i]);
     printf("]\n");
 
     printf("row_ptr: [ ");
-    for (i = 0; i < no_nodes + 1; ++i)
-      printf("%d ", row_ptr[i]);
+    for (i = 0; i < no_nodes + 1; ++i) printf("%d ", row_ptr[i]);
     printf("]\n\n");
     printf("danglings: [ ");
     for (j = 0; j < no_danglings; ++j) {
       printf("%d", danglings[j]);
-      if (j < no_danglings - 1)
-        printf(", ");
+      if (j < no_danglings - 1) printf(", ");
     }
     printf(" ]\n");
     printf("Number of danglings nodes: %d\n\n", no_danglings);
@@ -292,24 +284,20 @@ int main(int argc, char *argv[]) {
   printf("CSR Transposed matrix\n");
   printf("---------------------\n");
   printf("val:     [ ");
-  for (i = 0; i < no_edges; ++i)
-    printf("%.3f ", val[i]);
+  for (i = 0; i < no_edges; ++i) printf("%.3f ", val[i]);
   printf("]\n");
 
   printf("col_ind: [ ");
-  for (i = 0; i < no_edges; ++i)
-    printf("%d ", col_ind[i]);
+  for (i = 0; i < no_edges; ++i) printf("%d ", col_ind[i]);
   printf("]\n");
 
   printf("row_ptr: [ ");
-  for (i = 0; i < no_nodes + 1; ++i)
-    printf("%d ", row_ptr[i]);
+  for (i = 0; i < no_nodes + 1; ++i) printf("%d ", row_ptr[i]);
   printf("]\n\n");
   printf("danglings: [ ");
   for (j = 0; j < no_danglings; ++j) {
     printf("%d", danglings[j]);
-    if (j < no_danglings - 1)
-      printf(", ");
+    if (j < no_danglings - 1) printf(", ");
   }
   printf(" ]\n");
   printf("Number of danglings nodes: %d\n\n", no_danglings);
@@ -318,8 +306,7 @@ int main(int argc, char *argv[]) {
   /* Setting data up for PageRank computation */
   d = 0.85;
   p = (double *)malloc(sizeof(double) * no_nodes);
-  for (i = 0; i < no_nodes; ++i)
-    p[i] = 1. / (double)no_nodes;
+  for (i = 0; i < no_nodes; ++i) p[i] = 1. / (double)no_nodes;
   p_new = (double *)malloc(sizeof(double) * no_nodes);
   dist = DBL_MAX;
   iter = 0;
@@ -341,8 +328,7 @@ int main(int argc, char *argv[]) {
 
     /* DTp = DanglingsT @ p */
     danglings_dot_product = 0.;
-    for (j = 0; j < no_danglings; ++j)
-      danglings_dot_product += p[danglings[j]];
+    for (j = 0; j < no_danglings; ++j) danglings_dot_product += p[danglings[j]];
     danglings_dot_product /= (double)no_nodes;
 
     /* ATp = AT @ p + DTp */
@@ -361,8 +347,7 @@ int main(int argc, char *argv[]) {
       dist += (p[i] - p_new[i]) * (p[i] - p_new[i]);
     dist = sqrt(dist);
 
-    for (i = 0; i < no_nodes; ++i)
-      p[i] = p_new[i];
+    for (i = 0; i < no_nodes; ++i) p[i] = p_new[i];
 
     ++iter;
   }
@@ -375,8 +360,7 @@ int main(int argc, char *argv[]) {
   printf("Done.\n\n");
 
   sum = 0.;
-  for (i = 0; i < no_nodes; ++i)
-    sum += p[i];
+  for (i = 0; i < no_nodes; ++i) sum += p[i];
   printf("Proof of correctness:\n");
   printf("sum(p) = %f\n\n", sum);
 
