@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
                                          no_danglings)) == MAP_FAILED)
     ++err;
 
-  if (err == 0) {
+  if (err != 0) {
     fprintf(stderr, " [ERROR] Data could not be mmapped from memory.\n");
     fprintf(stderr,
             "         Data is corrupted, the folder will be destroyed.\n");
