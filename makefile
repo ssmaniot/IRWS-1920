@@ -1,21 +1,25 @@
-CC := gcc 
-override CFLAGS += -std=gnu89 -Wall -pedantic -O3
+CC := gcc
+override CFLAGS += --std=gnu89 -Wall -pedantic -O3
 LDFLAGS := -lm
+
 EXEC := pagerank hits
 
 all: $(EXEC)
 
-pagerank: pagerank.o
-	$(CC) -o pagerank pagerank.o $(CFLAGS) $(LDFLAGS)
-	
-hits: hits.o
-	$(CC) -o hits hits.o $(CFLAGS) $(LDFLAGS)
+pagerank: pagerank.o utils.o
+	$(CC) -o pagerank pagerank.o utils.o $(CFLAGS) $(LDFLAGS)
 
-pagerank.o: src/pagerank.c 
+hits: hits.o utils.o
+	$(CC) -o hits hits.o utils.o $(CFLAGS) $(LDFLAGS)
+
+pagerank.o: src/pagerank.c src/utils.h
 	$(CC) -c src/pagerank.c $(CFLAGS)
 
-hits.o: src/hits.c 
+hits.o: src/hits.c src/utils.h
 	$(CC) -c src/hits.c $(CFLAGS)
 
+utils.o: src/utils.c src/utils.h
+	$(CC) -c src/utils.c $(CFLAGS)
+
 clean:
-	rm -f *.o $(EXEC)
+	rm -rf *.o $(EXEC) *.pr *.hits HITS_* PR_*

@@ -11,32 +11,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#define TOL 1.e-10
-#define MAX_ITER 200
-#define MOD_ITER 10
-#define FNAME 256
-#define DNAME 1024
-#define PATH 1024
-#define MMAP 2048
-/*#define DEBUG*/
+#include "utils.h"
 
-/* Data for compression */
-typedef struct {
-  int no_nodes;
-  int no_edges;
-  int no_danglings;
-} LCSR_data;
-
-/* Helper functions */
-int write_data(char path[], void *data, size_t nmemb, size_t size);
-void delete_folder(char dir[]);
-void *mmap_data(char path[], size_t nmemb, size_t size);
-void print_vec_f(double *v, int n);
-void print_vec_d(int *v, int n);
-void double_merge(int *from, int *to, int lo, int mid, int hi);
-void double_merge_sort(int *from, int *to, int lo, int hi);
-void sort_input_data(int *from, int *to, int n);
-int *index_sort_top_K(const double *v, size_t n, int top_K);
+typedef CSR_data LCSR_data;
 
 int main(int argc, char *argv[]) {
   /* Data to save/load LCSR matrix */
@@ -485,12 +462,15 @@ int main(int argc, char *argv[]) {
 
     /* Computing Jaccard with a */
     for (i = 0; i < top_K; ++i) {
+      printf("[JAC K=%d] i = %d\n", top_K, i);
       for (j = i + 1; j < top_K; ++j) {
+        printf("[JAC K=%d] -- j = %d\n", top_K, j);
         size_int = 0;
         size_uni = 0;
 
         ii = row_ptr_t[sorted_idx_a[i]];
         jj = row_ptr_t[sorted_idx_a[j]];
+        printf("[JAC K=%d] ---- ii = %d, jj = %d\n", top_K, ii, jj);
         while (ii < row_ptr_t[ii + 1] && jj < row_ptr_t[jj + 1]) {
           if (col_ind_t[ii] < col_ind_t[jj])
             ++ii;
@@ -533,7 +513,9 @@ int main(int argc, char *argv[]) {
     print_vec_d(degs, top_K);
 
     for (i = 0; i < top_K; ++i) {
+      printf("[JAC] i = %d\n", i);
       for (j = i; j < top_K; ++j) {
+        printf("[JAC] -- j = %d\n", j);
         size_int = 0;
         size_uni = 0;
 
@@ -596,157 +578,4 @@ int main(int argc, char *argv[]) {
   }
 
   exit(EXIT_SUCCESS);
-}
-
-/* Helper functions */
-
-int write_data(char path[], void *data, size_t nmemb, size_t size) {
-  FILE *pdata;
-
-  if ((pdata = fopen(path, "wb")) == NULL) {
-    fprintf(stderr, " [ERROR] Cannot create file \"%s\"\n", path);
-    return EXIT_FAILURE;
-  }
-  fwrite(data, size, nmemb, pdata);
-  fclose(pdata);
-  return EXIT_SUCCESS;
-}
-
-void delete_folder(char dir[]) {
-  DIR *pf = opendir(dir);
-  struct dirent *next_file;
-  char fpath[PATH];
-
-  while ((next_file = readdir(pf)) != NULL) {
-    sprintf(fpath, "%s/%s", dir, next_file->d_name);
-    remove(fpath);
-  }
-  closedir(pf);
-  rmdir(dir);
-}
-
-void *mmap_data(char path[], size_t nmemb, size_t size) {
-  int fd;
-  char mmap_p[MMAP];
-  void *mp;
-  sprintf(mmap_p, "./%s", path);
-#ifdef DEBUG
-  printf("mmapping \"%s\"\n", mmap_p);
-#endif
-  fd = open(mmap_p, O_RDONLY);
-  mp = mmap(NULL, nmemb * size, PROT_READ, MAP_SHARED, fd, 0);
-  if (mp == MAP_FAILED)
-    mp = NULL;
-  close(fd);
-  return mp;
-}
-
-void print_vec_f(double *v, int n) {
-  int i;
-  printf("[ ");
-  for (i = 0; i < n; ++i)
-    printf("%.3f ", v[i]);
-  printf("]\n");
-}
-
-void print_vec_d(int *v, int n) {
-  int i;
-  printf("[ ");
-  for (i = 0; i < n; ++i)
-    printf("%d ", v[i]);
-  printf("]\n");
-}
-
-void double_merge(int *from, int *to, int lo, int mid, int hi) {
-  int *FL, *TL;
-  int *FR, *TR;
-  int i, j;
-  int NL, NR;
-
-  NL = mid - lo;
-  NR = hi - mid;
-
-  FL = (int *)malloc(sizeof(int) * NL);
-  TL = (int *)malloc(sizeof(int) * NL);
-  FR = (int *)malloc(sizeof(int) * NR);
-  TR = (int *)malloc(sizeof(int) * NR);
-
-  for (i = 0; i < NL; ++i) {
-    FL[i] = from[lo + i];
-    TL[i] = to[lo + i];
-  }
-
-  for (j = 0; j < NR; ++j) {
-    FR[j] = from[mid + j];
-    TR[j] = to[mid + j];
-  }
-
-  i = 0;
-  j = 0;
-  while (i < NL && j < NR) {
-    if (TL[i] < TR[j] || (TL[i] == TR[j] && FL[i] <= FR[j])) {
-      from[lo + i + j] = FL[i];
-      to[lo + i + j] = TL[i];
-      ++i;
-    } else {
-      from[lo + i + j] = FR[j];
-      to[lo + i + j] = TR[j];
-      ++j;
-    }
-  }
-
-  while (i < NL) {
-    from[lo + i + j] = FL[i];
-    to[lo + i + j] = TL[i];
-    ++i;
-  }
-
-  while (j < NR) {
-    from[lo + i + j] = FR[j];
-    to[lo + i + j] = TR[j];
-    ++j;
-  }
-
-  free(FL);
-  free(TL);
-  free(FR);
-  free(TR);
-}
-
-void double_merge_sort(int *from, int *to, int lo, int hi) {
-  if (hi - lo > 1) {
-    int mid = (lo + hi) / 2;
-    double_merge_sort(from, to, lo, mid);
-    double_merge_sort(from, to, mid, hi);
-    double_merge(from, to, lo, mid, hi);
-  }
-}
-
-void sort_input_data(int *from, int *to, int n) {
-  double_merge_sort(from, to, 0, n);
-}
-
-int cmp_ptr(const void *a, const void *b) {
-  const double **L = (const double **)a;
-  const double **R = (const double **)b;
-
-  return (**R < **L) - (**L < **R);
-}
-
-int *index_sort_top_K(const double *v, size_t n, int top_K) {
-  size_t i;
-  const double **ptrs;
-  int *idx;
-
-  ptrs = (const double **)malloc(n * sizeof(const double **));
-  for (i = 0; i < n; ++i)
-    ptrs[i] = v + i;
-  printf("Sorting pointers...");
-  qsort(ptrs, n, sizeof(const double *), cmp_ptr);
-  printf(" Done.\n");
-  idx = (int *)malloc(sizeof(int) * top_K);
-  for (i = 0; i < top_K; ++i)
-    idx[i] = ptrs[n - i - 1] - v;
-  free(ptrs);
-  return idx;
 }
