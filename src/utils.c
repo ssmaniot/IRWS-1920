@@ -44,8 +44,7 @@ void *mmap_data(char path[], size_t nmemb, size_t size) {
 #endif
   fd = open(mmap_p, O_RDONLY);
   mp = mmap(NULL, nmemb * size, PROT_READ, MAP_SHARED, fd, 0);
-  if (mp == MAP_FAILED)
-    mp = NULL;
+  if (mp == MAP_FAILED) mp = NULL;
   close(fd);
   return mp;
 }
@@ -53,16 +52,14 @@ void *mmap_data(char path[], size_t nmemb, size_t size) {
 void print_vec_f(double *v, int n) {
   int i;
   printf("[ ");
-  for (i = 0; i < n; ++i)
-    printf("%.3f ", v[i]);
+  for (i = 0; i < n; ++i) printf("%.3f ", v[i]);
   printf("]\n");
 }
 
 void print_vec_d(int *v, int n) {
   int i;
   printf("[ ");
-  for (i = 0; i < n; ++i)
-    printf("%d ", v[i]);
+  for (i = 0; i < n; ++i) printf("%d ", v[i]);
   printf("]\n");
 }
 
@@ -148,14 +145,12 @@ int *index_sort_top_K(const double *v, size_t n, int top_K) {
   int *idx;
 
   ptrs = (const double **)malloc(n * sizeof(const double **));
-  for (i = 0; i < n; ++i)
-    ptrs[i] = v + i;
+  for (i = 0; i < n; ++i) ptrs[i] = v + i;
   printf("Sorting pointers...");
   qsort(ptrs, n, sizeof(const double *), cmp_ptr);
   printf(" Done.\n");
   idx = (int *)malloc(sizeof(int) * top_K);
-  for (i = 0; i < top_K; ++i)
-    idx[i] = ptrs[n - i - 1] - v;
+  for (i = 0; i < top_K; ++i) idx[i] = ptrs[n - i - 1] - v;
   free(ptrs);
   return idx;
 }
