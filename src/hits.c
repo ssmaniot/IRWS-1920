@@ -15,21 +15,19 @@
 
 typedef CSR_data LCSR_data;
 
-void perform_compression(const char dataset_path[FNAME], char dir[DNAME],
-                         char row_ptr_p[PATH], char row_ptr_tp[PATH],
-                         char col_ind_p[PATH], char col_ind_tp[PATH],
-                         char lcsr_data_p[PATH], LCSR_data *lcsr_data);
+/* Data to save/load LCSR matrix */
+char fname[FNAME] = {0};
+char dir[DNAME] = {0};
+/*   Matrix L               Matrix L^T     */
+char row_ptr_p[PATH] = {0}, row_ptr_tp[PATH] = {0};
+char col_ind_p[PATH] = {0}, col_ind_tp[PATH] = {0};
+char lcsr_data_p[PATH] = {0};
+LCSR_data lcsr_data = {0};
+
+void perform_compression(const char dataset_path[FNAME]);
 
 int main(int argc, char *argv[]) {
-  /* Data to save/load LCSR matrix */
-  FILE *pdata;
-  char fname[FNAME];
-  char dir[DNAME];
-  /*   Matrix L         Matrix L^T         */
-  char row_ptr_p[PATH], row_ptr_tp[PATH];
-  char col_ind_p[PATH], col_ind_tp[PATH];
-  char lcsr_data_p[PATH];
-  LCSR_data lcsr_data;
+  FILE *pdata = NULL;
   struct stat st = {0};
 
   /* Reading data from input file */
@@ -102,8 +100,7 @@ int main(int argc, char *argv[]) {
   /* Check if input data has already been compressed.
    * If data has NOT yet been compressed, then perform compression */
   if (stat(dir, &st) == -1) {
-    perform_compression(argv[1], dir, row_ptr_p, row_ptr_tp, col_ind_p,
-                        col_ind_tp, lcsr_data_p, &lcsr_data);
+    perform_compression(argv[1]);
   }
 
   /* Reading LCSR matrix metadata info from file */
@@ -178,7 +175,7 @@ int main(int argc, char *argv[]) {
   printf("]\n\n");
 #endif
 
-  /* Setting data up for HITS computation */
+  /* Setting up data for HITS computation */
   a = (double *)malloc(sizeof(double) * no_nodes);
   h = (double *)malloc(sizeof(double) * no_nodes);
   for (i = 0; i < no_nodes; ++i) {
@@ -436,10 +433,7 @@ int main(int argc, char *argv[]) {
   exit(EXIT_SUCCESS);
 }
 
-void perform_compression(const char dataset_path[FNAME], char dir[DNAME],
-                         char row_ptr_p[PATH], char row_ptr_tp[PATH],
-                         char col_ind_p[PATH], char col_ind_tp[PATH],
-                         char lcsr_data_p[PATH], LCSR_data *lcsr_data) {
+void perform_compression(const char dataset_path[FNAME]) {
   /* Reading data from input file */
   FILE *pf;
   int no_nodes, no_edges;
@@ -475,8 +469,8 @@ void perform_compression(const char dataset_path[FNAME], char dir[DNAME],
   printf("This graph has %d nodes and %d edges\n", no_nodes, no_edges);
   bytes = getline(&s, &slen, pf);
 
-  lcsr_data->no_nodes = no_nodes;
-  lcsr_data->no_edges = no_edges;
+  lcsr_data.no_nodes = no_nodes;
+  lcsr_data.no_edges = no_edges;
 
   /* Reading data from input file */
   i = 0;
@@ -581,7 +575,7 @@ void perform_compression(const char dataset_path[FNAME], char dir[DNAME],
          EXIT_FAILURE) ||
         (write_data(col_ind_tp, (void *)col_ind_t, sizeof(int), no_edges) ==
          EXIT_FAILURE) ||
-        (write_data(lcsr_data_p, (void *)lcsr_data, sizeof(LCSR_data), 1) ==
+        (write_data(lcsr_data_p, (void *)&lcsr_data, sizeof(LCSR_data), 1) ==
          EXIT_FAILURE);
 
   /* Input data */
