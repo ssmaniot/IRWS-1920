@@ -1,22 +1,26 @@
-# Ignore binary files:
+# Binary files
 pagerank
 hits
 
-# Ignore all .o:
+# Object files
 *.o
 
-# Ignore results:
+# Results
 *.pr
 *.hits
 *.csv
 
-# Ignore all folders:
+# Output folders
 PR_*/
 HITS_*/
 
-# Ignore all data files:
+# Compilation database output files
+compile_commands.json
+.cache/
+
+# Data files
 data/*
 
-# Except for the following ones:
+# Except for the following ones
 !src/
 !data/.gitkeep

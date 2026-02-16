@@ -6,6 +6,9 @@ EXEC := pagerank hits
 
 all: $(EXEC)
 
+compdb:
+	bear -- make clean all
+
 pagerank: pagerank.o utils.o
 	$(CC) -o pagerank pagerank.o utils.o $(CFLAGS) $(LDFLAGS)
 
