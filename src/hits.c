@@ -27,8 +27,8 @@ char row_ptr_p[PATH] = {0}, row_ptr_tp[PATH] = {0};
 char col_ind_p[PATH] = {0}, col_ind_tp[PATH] = {0};
 
 /* HITS computation data */
-double *a = NULL, *a_new = NULL;
-double *h = NULL, *h_new = NULL;
+double *a = NULL;
+double *h = NULL;
 char fauth[FNAME] = {0};
 char fhub[FNAME] = {0};
 
@@ -173,8 +173,6 @@ int main(int argc, char *argv[]) {
     a[i] = 1.;
     h[i] = 1.;
   }
-  a_new = (double *)malloc(sizeof(double) * no_nodes);
-  h_new = (double *)malloc(sizeof(double) * no_nodes);
 
   compute_hits();
 
@@ -183,7 +181,7 @@ int main(int argc, char *argv[]) {
     double **jaccard_coefficients_a, **jaccard_coefficients_h;
     int *sorted_idx_a, *sorted_idx_h;
     int *degs;
-    char topk_jac_fname[512];
+    char fname_topk_jac[512];
     double jaccard_coefficient;
     int size_int, size_uni;
     int i, j, k;
@@ -205,6 +203,7 @@ int main(int argc, char *argv[]) {
 
     printf("Top-K nodes (a): ");
     print_vec_d(sorted_idx_a, top_K);
+
     printf("Top-K nodes (h): ");
     print_vec_d(sorted_idx_h, top_K);
 
@@ -217,44 +216,41 @@ int main(int argc, char *argv[]) {
     print_vec_d(degs, top_K);
 
     /* Creating CSV file for storing the results */
-    sprintf(topk_jac_fname, "%s_k%d_a.csv", fname, top_K);
+    sprintf(fname_topk_jac, "%s_k%d_a.csv", fname, top_K);
 
-    if ((pf = fopen(topk_jac_fname, "w")) == NULL) {
+    if ((pf = fopen(fname_topk_jac, "w")) == NULL) {
       fprintf(stderr, " [ERROR] cannot open output file \"%s\"\n",
-              topk_jac_fname);
+              fname_topk_jac);
       exit(EXIT_FAILURE);
     }
     fprintf(pf, "n1,n2,jac\n");
 
     /* Computing Jaccard with a */
     for (i = 0; i < top_K; ++i) {
-      printf("[JAC K=%d] i = %d\n", top_K, i);
       for (j = i + 1; j < top_K; ++j) {
-        printf("[JAC K=%d] -- j = %d\n", top_K, j);
+        int ii = row_ptr_t[sorted_idx_a[i]], ij = row_ptr_t[sorted_idx_a[j]];
+        int iie = row_ptr_t[sorted_idx_a[i] + 1],
+            ije = row_ptr_t[sorted_idx_a[j] + 1];
         size_int = 0;
         size_uni = 0;
-
-        ii = row_ptr_t[sorted_idx_a[i]];
-        jj = row_ptr_t[sorted_idx_a[j]];
-        printf("[JAC K=%d] ---- ii = %d, jj = %d\n", top_K, ii, jj);
-        while (ii < row_ptr_t[ii + 1] && jj < row_ptr_t[jj + 1]) {
-          if (col_ind_t[ii] < col_ind_t[jj])
+        while (ii < iie && ij < ije) {
+          if (col_ind_t[ii] < col_ind_t[ij]) {
             ++ii;
-          else if (col_ind_t[ii] > col_ind_t[jj])
-            ++jj;
-          else {
+          } else if (col_ind_t[ii] > col_ind_t[ij]) {
+            ++ij;
+          } else {
             ++size_int;
             ++ii;
-            ++jj;
+            ++ij;
           }
           ++size_uni;
         }
-        while (ii < row_ptr_t[ii + 1]) {
+        while (ii < iie) {
           ++ii;
           ++size_uni;
         }
-        while (jj < row_ptr_t[jj + 1]) {
-          ++jj;
+        while (ij < ije) {
+          ++ij;
           ++size_uni;
         }
         jaccard_coefficient = ((double)size_int) / ((double)size_uni);
@@ -266,9 +262,8 @@ int main(int argc, char *argv[]) {
                 jaccard_coefficient);
       }
     }
-    printf("\n");
-
     fclose(pf);
+    printf("\n");
 
     /* Computing Jaccard with h */
     for (k = 0; k < top_K; ++k) {
@@ -279,20 +274,18 @@ int main(int argc, char *argv[]) {
     print_vec_d(degs, top_K);
 
     for (i = 0; i < top_K; ++i) {
-      printf("[JAC] i = %d\n", i);
       for (j = i; j < top_K; ++j) {
-        printf("[JAC] -- j = %d\n", j);
         size_int = 0;
         size_uni = 0;
 
         ii = row_ptr_t[sorted_idx_h[i]];
         jj = row_ptr_t[sorted_idx_h[j]];
         while (ii < row_ptr_t[i + 1] && jj < row_ptr_t[j + 1]) {
-          if (col_ind_t[ii] < col_ind_t[jj])
+          if (col_ind_t[ii] < col_ind_t[jj]) {
             ++ii;
-          else if (col_ind_t[ii] < col_ind_t[jj])
+          } else if (col_ind_t[ii] < col_ind_t[jj]) {
             ++jj;
-          else {
+          } else {
             ++size_int;
             ++ii;
             ++jj;
@@ -330,9 +323,7 @@ int main(int argc, char *argv[]) {
 
   /* Vectors of probability */
   free(a);
-  free(a_new);
   free(h);
-  free(h_new);
 
   /* Manage error from writing data to memory */
   if (err) {
@@ -520,6 +511,8 @@ void compute_hits(void) {
   int iter = 0;
   int ri, ci;
   int i;
+  double *a_new = (double *)malloc(sizeof(double) * no_nodes);
+  double *h_new = (double *)malloc(sizeof(double) * no_nodes);
 
   /* Time elapsed data */
   clock_t begin, end;
@@ -602,4 +595,7 @@ void compute_hits(void) {
 
   elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
   printf("Elapsed time: %.3fs\n", elapsed_time);
+
+  free(a_new);
+  free(h_new);
 }
