@@ -18,47 +18,37 @@ typedef CSR_data LCSR_data;
 /* Data to save/load LCSR matrix */
 char fname[FNAME] = {0};
 char dir[DNAME] = {0};
-/*   Matrix L               Matrix L^T     */
-char row_ptr_p[PATH] = {0}, row_ptr_tp[PATH] = {0};
-char col_ind_p[PATH] = {0}, col_ind_tp[PATH] = {0};
 char lcsr_data_p[PATH] = {0};
 LCSR_data lcsr_data = {0};
+int no_nodes = 0, no_edges = 0;
+
+/*   Matrix L               Matrix L^T           */
+char row_ptr_p[PATH] = {0}, row_ptr_tp[PATH] = {0};
+char col_ind_p[PATH] = {0}, col_ind_tp[PATH] = {0};
+
+/* HITS computation data */
+double *a = NULL, *a_new = NULL;
+double *h = NULL, *h_new = NULL;
+char fauth[FNAME] = {0};
+char fhub[FNAME] = {0};
+
+/* LCSR matrix representation */
+int *col_ind = NULL, *col_ind_t = NULL;
+int *row_ptr = NULL, *row_ptr_t = NULL;
 
 void perform_compression(const char dataset_path[FNAME]);
+void compute_hits(void);
 
 int main(int argc, char *argv[]) {
-  FILE *pdata = NULL;
-  struct stat st = {0};
-
-  /* Reading data from input file */
+  /* File IO */
   FILE *pf;
-  int no_nodes, no_edges;
   ssize_t bytes;
 
-  /* HITS computation */
-  int ri, ci;
-  int i;
-
-  /* LCSR matrix representation */
-  int *col_ind = NULL, *col_ind_t = NULL;
-  int *row_ptr = NULL, *row_ptr_t = NULL;
-
-  /* HITS computation data */
-  double *a, *a_new;
-  double *h, *h_new;
-  double a_dist, h_dist;
-  int iter;
-  char fauth[FNAME];
-  char fhub[FNAME];
-  int top_K;
-
-  /* Time elapsed data */
-  clock_t begin, end;
-  double elapsed_time;
-
   /* Extra data */
-  double sum;
   int err;
+  int i;
+  int top_K = 0;
+  struct stat st = {0};
 
   if (argc != 2 && argc != 3) {
     fprintf(stderr,
@@ -105,27 +95,28 @@ int main(int argc, char *argv[]) {
 
   /* Reading LCSR matrix metadata info from file */
   printf("Reading CLSR matrix data...\n");
-  pdata = fopen(lcsr_data_p, "rb");
-  bytes = fread(&no_nodes, sizeof(lcsr_data.no_nodes), 1, pdata);
-  bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pdata);
+  pf = fopen(lcsr_data_p, "rb");
+  bytes = fread(&no_nodes, sizeof(lcsr_data.no_nodes), 1, pf);
+  bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pf);
   (void)bytes;
-  fclose(pdata);
+  fclose(pf);
   printf("no_nodes: %d\nno_edges: %d\n\n", no_nodes, no_edges);
 
   /* mmapping the CSR matrix data from files */
   err = 0;
   if ((row_ptr = (int *)mmap_data(row_ptr_p, sizeof(int), no_nodes + 1)) ==
-      MAP_FAILED)
+      MAP_FAILED) {
     ++err;
-  else if ((row_ptr_t = (int *)mmap_data(row_ptr_tp, sizeof(int),
-                                         no_nodes + 1)) == MAP_FAILED)
+  } else if ((row_ptr_t = (int *)mmap_data(row_ptr_tp, sizeof(int),
+                                           no_nodes + 1)) == MAP_FAILED) {
     ++err;
-  else if ((col_ind = (int *)mmap_data(col_ind_p, sizeof(int), no_edges)) ==
-           MAP_FAILED)
+  } else if ((col_ind = (int *)mmap_data(col_ind_p, sizeof(int), no_edges)) ==
+             MAP_FAILED) {
     ++err;
-  else if ((col_ind_t = (int *)mmap_data(col_ind_tp, sizeof(int), no_edges)) ==
-           MAP_FAILED)
+  } else if ((col_ind_t = (int *)mmap_data(col_ind_tp, sizeof(int),
+                                           no_edges)) == MAP_FAILED) {
     ++err;
+  }
 
   if (err > 0) {
     fprintf(stderr, " [ERROR] data could not be mmapped from memory.\n");
@@ -184,87 +175,8 @@ int main(int argc, char *argv[]) {
   }
   a_new = (double *)malloc(sizeof(double) * no_nodes);
   h_new = (double *)malloc(sizeof(double) * no_nodes);
-  a_dist = DBL_MAX;
-  h_dist = DBL_MAX;
-  iter = 0;
 
-  /* Computing HITS */
-  printf("Computing HITS...\n");
-  begin = clock();
-  while ((a_dist > TOL || h_dist > TOL) && iter < MAX_ITER) {
-    if (iter % MOD_ITER == 0) {
-      printf("\riter %d", iter);
-#ifdef DEBUG
-      printf("\n");
-      printf("a: ");
-      print_vec_f(a, no_nodes);
-      printf("h: ");
-      print_vec_f(h, no_nodes);
-#endif
-    }
-
-    /* a_new = Lt @ h, h_new = L @ a */
-    for (ri = 0; ri < no_nodes; ++ri) {
-      a_new[ri] = 0.;
-      for (ci = row_ptr_t[ri]; ci < row_ptr_t[ri + 1]; ++ci) {
-        a_new[ri] += h[col_ind_t[ci]];
-      }
-      h_new[ri] = .0;
-      for (ci = row_ptr[ri]; ci < row_ptr[ri + 1]; ++ci) {
-        h_new[ri] += a[col_ind[ci]];
-      }
-    }
-
-    /* Normalization step */
-    sum = 0.;
-    for (i = 0; i < no_nodes; ++i) sum += a_new[i];
-    for (i = 0; i < no_nodes; ++i) a_new[i] /= sum;
-    sum = 0.;
-    for (i = 0; i < no_nodes; ++i) sum += h_new[i];
-    for (i = 0; i < no_nodes; ++i) h_new[i] /= sum;
-
-    /* Computing distance between current and old a/h */
-    a_dist = 0.;
-    h_dist = 0.;
-    for (i = 0; i < no_nodes; ++i) {
-      a_dist += (a[i] - a_new[i]) * (a[i] - a_new[i]);
-      h_dist += (h[i] - h_new[i]) * (h[i] - h_new[i]);
-    }
-    a_dist = sqrt(a_dist);
-    h_dist = sqrt(h_dist);
-
-    /* Copy new values in a/h */
-    for (i = 0; i < no_nodes; ++i) {
-      a[i] = a_new[i];
-      h[i] = h_new[i];
-    }
-
-    ++iter;
-  }
-  end = clock();
-  printf("\riter %d\n", iter);
-#ifdef DEBUG
-  printf("a: ");
-  print_vec_f(a, no_nodes);
-  printf("h: ");
-  print_vec_f(h, no_nodes);
-#endif
-  printf("Done.\n\n");
-
-  printf("Proof of correctness:\n");
-  sum = 0.;
-  for (i = 0; i < no_nodes; ++i) {
-    sum += a[i];
-  }
-  printf("sum(a) = %f\n", sum);
-  sum = 0.;
-  for (i = 0; i < no_nodes; ++i) {
-    sum += h[i];
-  }
-  printf("sum(h) = %f\n\n", sum);
-
-  elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
-  printf("Elapsed time: %.3fs\n", elapsed_time);
+  compute_hits();
 
   /* Computing top-K Jaccard coefficients */
   if (argc > 2) {
@@ -424,9 +336,9 @@ int main(int argc, char *argv[]) {
 
   /* Manage error from writing data to memory */
   if (err) {
+    fprintf(stderr, " [ERROR] HITS result could not be written in memory.\n");
     if (stat(fauth, &st) == 0) remove(fauth);
-    fprintf(stderr,
-            " [ERROR] PageRank result could not be written in memory.\n");
+    if (stat(fhub, &st) == 0) remove(fhub);
     exit(EXIT_FAILURE);
   }
 
@@ -599,4 +511,95 @@ void perform_compression(const char dataset_path[FNAME]) {
     fprintf(stderr, " [ERROR] data could not be written in memory.\n");
     exit(EXIT_FAILURE);
   }
+}
+
+void compute_hits(void) {
+  /* HITS computation */
+  double a_dist = DBL_MAX, h_dist = DBL_MAX;
+  double sum;
+  int iter = 0;
+  int ri, ci;
+  int i;
+
+  /* Time elapsed data */
+  clock_t begin, end;
+  double elapsed_time;
+
+  /* Computing HITS */
+  printf("Computing HITS...\n");
+  begin = clock();
+  while ((a_dist > TOL || h_dist > TOL) && iter < MAX_ITER) {
+    if (iter % MOD_ITER == 0) {
+      printf("\riter %d", iter);
+#ifdef DEBUG
+      printf("\n");
+      printf("a: ");
+      print_vec_f(a, no_nodes);
+      printf("h: ");
+      print_vec_f(h, no_nodes);
+#endif
+    }
+
+    /* a_new = Lt @ h, h_new = L @ a */
+    for (ri = 0; ri < no_nodes; ++ri) {
+      a_new[ri] = 0.;
+      for (ci = row_ptr_t[ri]; ci < row_ptr_t[ri + 1]; ++ci) {
+        a_new[ri] += h[col_ind_t[ci]];
+      }
+      h_new[ri] = .0;
+      for (ci = row_ptr[ri]; ci < row_ptr[ri + 1]; ++ci) {
+        h_new[ri] += a[col_ind[ci]];
+      }
+    }
+
+    /* Normalization step */
+    sum = 0.;
+    for (i = 0; i < no_nodes; ++i) sum += a_new[i];
+    for (i = 0; i < no_nodes; ++i) a_new[i] /= sum;
+    sum = 0.;
+    for (i = 0; i < no_nodes; ++i) sum += h_new[i];
+    for (i = 0; i < no_nodes; ++i) h_new[i] /= sum;
+
+    /* Computing distance between current and old a/h */
+    a_dist = 0.;
+    h_dist = 0.;
+    for (i = 0; i < no_nodes; ++i) {
+      a_dist += (a[i] - a_new[i]) * (a[i] - a_new[i]);
+      h_dist += (h[i] - h_new[i]) * (h[i] - h_new[i]);
+    }
+    a_dist = sqrt(a_dist);
+    h_dist = sqrt(h_dist);
+
+    /* Copy new values in a/h */
+    for (i = 0; i < no_nodes; ++i) {
+      a[i] = a_new[i];
+      h[i] = h_new[i];
+    }
+
+    ++iter;
+  }
+  end = clock();
+  printf("\riter %d\n", iter);
+#ifdef DEBUG
+  printf("a: ");
+  print_vec_f(a, no_nodes);
+  printf("h: ");
+  print_vec_f(h, no_nodes);
+#endif
+  printf("Done.\n\n");
+
+  printf("Proof of correctness:\n");
+  sum = 0.;
+  for (i = 0; i < no_nodes; ++i) {
+    sum += a[i];
+  }
+  printf("sum(a) = %f\n", sum);
+  sum = 0.;
+  for (i = 0; i < no_nodes; ++i) {
+    sum += h[i];
+  }
+  printf("sum(h) = %f\n\n", sum);
+
+  elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
+  printf("Elapsed time: %.3fs\n", elapsed_time);
 }
