@@ -133,24 +133,44 @@ void sort_input_data(int *from, int *to, int n) {
 }
 
 int cmp_ptr(const void *a, const void *b) {
-  const double **L = (const double **)a;
-  const double **R = (const double **)b;
+  const double *L = (const double *)a;
+  const double *R = (const double *)b;
 
-  return (**R < **L) - (**L < **R);
+  return (*R < *L) - (*L < *R);
 }
 
-int *index_sort_top_K(const double *v, size_t n, int top_K) {
-  size_t i;
-  const double **ptrs;
-  int *idx;
+#define SWAP(v, i, j) \
+  do {                \
+    int tmp = v[i];   \
+    v[i] = v[j];       \
+    v[j] = tmp;        \
+  } while (0)
 
-  ptrs = (const double **)malloc(n * sizeof(const double **));
-  for (i = 0; i < n; ++i) ptrs[i] = v + i;
-  printf("Sorting pointers...");
-  qsort(ptrs, n, sizeof(const double *), cmp_ptr);
-  printf(" Done.\n");
-  idx = (int *)malloc(sizeof(int) * top_K);
-  for (i = 0; i < top_K; ++i) idx[i] = ptrs[n - i - 1] - v;
-  free(ptrs);
+int *index_sort_top_K(const double *v, size_t n, int top_K) {
+  int i, j;
+  int *idx = (int *)malloc(top_K * sizeof(int));
+
+  for (i = 0; i < top_K; ++i) {
+    idx[i] = i;
+    for (j = i; j > 0; --j) {
+      if (v[idx[j - 1]] <= v[idx[j]]) {
+        break;
+      }
+      SWAP(idx, j, j - 1);
+    }
+  }
+
+  for (; i < n; ++i) {
+    if (v[idx[0]] < v[i]) {
+      idx[0] = i;
+      for (j = 1; j < top_K; ++j) {
+        if (v[idx[j - 1]] < v[idx[j]]) {
+          break;
+        }
+        SWAP(idx, j - 1, j);
+      }
+    }
+  }
+
   return idx;
 }
