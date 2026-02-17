@@ -25,4 +25,4 @@ utils.o: src/utils.c src/utils.h
 	$(CC) -c src/utils.c $(CFLAGS)
 
 clean:
-	rm -rf *.o $(EXEC) *.pr *.hits HITS_* PR_*
+	rm -rf *.o $(EXEC) *.pr *.hits HITS_* PR_* *.csv
