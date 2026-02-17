@@ -23,40 +23,31 @@ char danglings_p[PATH] = {0};
 char csr_data_p[PATH] = {0};
 char fres[PATH] = {0};
 CSR_data csr_data = {0};
+int no_nodes = 0, no_edges = 0;
+
+/* Pagerank computation data */
+int *danglings = NULL;
+int no_danglings = 0;
+double danglings_dot_product = 0;
+double *p = NULL, *p_new = NULL;
+
+/* CSR matrix representation */
+double *val = NULL;
+int *col_ind = NULL;
+int *row_ptr = NULL;
 
 void perform_compression(const char dataset_path[FNAME]);
+void compute_pagerank(void);
 
 int main(int argc, char *argv[]) {
-  FILE *pdata;
-  struct stat st = {0};
-
   /* Reading data from input file */
-  int no_nodes, no_edges;
-  ssize_t bytes;
-
-  /* CSR matrix representation */
-  double *val = NULL;
-  int *col_ind = NULL;
-  int *row_ptr = NULL;
-
-  /* Pagerank computation data */
-  int *danglings = NULL;
-  int no_danglings;
-  double danglings_dot_product;
-  double *p, *p_new;
-  double d;
-  double dist;
-  int iter;
-  int ri, ci;
-  int i, j;
-
-  /* Time elapsed data */
-  clock_t begin, end;
-  double elapsed_time;
+  ssize_t bytes = 0;
+  FILE *pdata = NULL;
 
   /* Extra data */
-  double sum;
-  int err;
+  struct stat st = {0};
+  int err = 0;
+  int i;
 
   if (argc != 2) {
     fprintf(stderr, " [ERROR] *1* argument required: ./pagerank <arg_name>\n");
@@ -162,68 +153,11 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* Setting data up for PageRank computation */
-  d = 0.85;
   p = (double *)malloc(sizeof(double) * no_nodes);
   for (i = 0; i < no_nodes; ++i) p[i] = 1. / (double)no_nodes;
   p_new = (double *)malloc(sizeof(double) * no_nodes);
-  dist = DBL_MAX;
-  iter = 0;
 
-  /* Computing PageRank */
-  printf("Computing PageRank...\n");
-  begin = clock();
-  while (dist > TOL && iter < MAX_ITER) {
-#ifdef DEBUG
-    if (iter % MOD_ITER == 0) {
-#endif
-      printf("\riter %d", iter);
-#ifdef DEBUG
-      printf("\n");
-      printf("p: ");
-      print_vec_f(p, no_nodes);
-    }
-#endif
-
-    /* DTp = DanglingsT @ p */
-    danglings_dot_product = 0.;
-    for (j = 0; j < no_danglings; ++j) danglings_dot_product += p[danglings[j]];
-    danglings_dot_product /= (double)no_nodes;
-
-    /* ATp = AT @ p + DTp */
-    for (ri = 0; ri < no_nodes; ++ri) {
-      p_new[ri] = danglings_dot_product;
-      for (ci = row_ptr[ri]; ci < row_ptr[ri + 1]; ++ci)
-        p_new[ri] += p[col_ind[ci]] * val[ci];
-    }
-
-    /* d*AT @ p + (1-d)eeT @ p */
-    for (i = 0; i < no_nodes; ++i)
-      p_new[i] = d * p_new[i] + (1. - d) / (double)no_nodes;
-
-    dist = 0.;
-    for (i = 0; i < no_nodes; ++i)
-      dist += (p[i] - p_new[i]) * (p[i] - p_new[i]);
-    dist = sqrt(dist);
-
-    for (i = 0; i < no_nodes; ++i) p[i] = p_new[i];
-
-    ++iter;
-  }
-  end = clock();
-  printf("\riter %d\n", iter);
-#ifdef DEBUG
-  printf("p: ");
-  print_vec_f(p, no_nodes);
-#endif
-  printf("Done.\n\n");
-
-  sum = 0.;
-  for (i = 0; i < no_nodes; ++i) sum += p[i];
-  printf("Proof of correctness:\n");
-  printf("sum(p) = %f\n\n", sum);
-
-  elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
-  printf("Elapsed time: %.3fs\n", elapsed_time);
+  compute_pagerank();
 
   /* un-mmapping data */
   munmap(row_ptr, (no_nodes + 1) * sizeof(int));
@@ -416,4 +350,73 @@ void perform_compression(const char dataset_path[FNAME]) {
 
   elapsed_time = (double)(clock() - begin) / CLOCKS_PER_SEC;
   printf("Elapsed time: %.3fs\n\n", elapsed_time);
+}
+
+void compute_pagerank(void) {
+  double d = 0.85;
+  double dist = DBL_MAX;
+  int iter = 0;
+  double sum;
+  int ri, ci;
+  int i, j;
+
+  /* Time elapsed data */
+  clock_t begin, end;
+  double elapsed_time;
+
+  /* Computing PageRank */
+  printf("Computing PageRank...\n");
+  begin = clock();
+  while (dist > TOL && iter < MAX_ITER) {
+#ifdef DEBUG
+    if (iter % MOD_ITER == 0) {
+#endif
+      printf("\riter %d", iter);
+#ifdef DEBUG
+      printf("\n");
+      printf("p: ");
+      print_vec_f(p, no_nodes);
+    }
+#endif
+
+    /* DTp = DanglingsT @ p */
+    danglings_dot_product = 0.;
+    for (j = 0; j < no_danglings; ++j) danglings_dot_product += p[danglings[j]];
+    danglings_dot_product /= (double)no_nodes;
+
+    /* ATp = AT @ p + DTp */
+    for (ri = 0; ri < no_nodes; ++ri) {
+      p_new[ri] = danglings_dot_product;
+      for (ci = row_ptr[ri]; ci < row_ptr[ri + 1]; ++ci)
+        p_new[ri] += p[col_ind[ci]] * val[ci];
+    }
+
+    /* d*AT @ p + (1-d)eeT @ p */
+    for (i = 0; i < no_nodes; ++i)
+      p_new[i] = d * p_new[i] + (1. - d) / (double)no_nodes;
+
+    dist = 0.;
+    for (i = 0; i < no_nodes; ++i)
+      dist += (p[i] - p_new[i]) * (p[i] - p_new[i]);
+    dist = sqrt(dist);
+
+    for (i = 0; i < no_nodes; ++i) p[i] = p_new[i];
+
+    ++iter;
+  }
+  end = clock();
+  printf("\riter %d\n", iter);
+#ifdef DEBUG
+  printf("p: ");
+  print_vec_f(p, no_nodes);
+#endif
+  printf("Done.\n\n");
+
+  sum = 0;
+  for (i = 0; i < no_nodes; ++i) sum += p[i];
+  printf("Proof of correctness:\n");
+  printf("sum(p) = %f\n\n", sum);
+
+  elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
+  printf("Elapsed time: %.3fs\n", elapsed_time);
 }
