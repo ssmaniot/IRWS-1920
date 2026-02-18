@@ -48,6 +48,9 @@ int main(int argc, char *argv[]) {
   struct stat st = {0};
   int err = 0;
   int i;
+#ifdef DEBUG
+  int j;
+#endif
 
   if (argc != 2) {
     fprintf(stderr, " [ERROR] *1* argument required: ./pagerank <arg_name>\n");
