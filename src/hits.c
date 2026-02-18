@@ -11,6 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "jaccard.h"
 #include "utils.h"
 
 typedef CSR_data LCSR_data;
@@ -178,136 +179,11 @@ int main(int argc, char *argv[]) {
 
   /* Computing top-K Jaccard coefficients */
   if (argc > 2) {
-    double **jaccard_coefficients_a, **jaccard_coefficients_h;
-    int *sorted_idx_a, *sorted_idx_h;
-    int *degs;
-    char fname_topk_jac[512];
-    double jaccard_coefficient;
-    int size_int, size_uni;
-    int i, j, k;
-    int ii, jj;
-
     sscanf(argv[2], "%d", &top_K);
-
-    /* Creating the K x K matrixes for the top-K Jaccard Coefficients */
-    jaccard_coefficients_a = (double **)malloc(top_K * sizeof(double *));
-    jaccard_coefficients_h = (double **)malloc(top_K * sizeof(double *));
-    for (i = 0; i < top_K; ++i) {
-      jaccard_coefficients_a[i] = (double *)calloc(top_K, sizeof(double));
-      jaccard_coefficients_h[i] = (double *)calloc(top_K, sizeof(double));
-    }
-
-    /* Computing the top-K nodes for each distribution */
-    sorted_idx_a = index_sort_top_K(a, no_nodes, top_K);
-    sorted_idx_h = index_sort_top_K(h, no_nodes, top_K);
-
-    printf("Top-K nodes (a): ");
-    print_vec_d(sorted_idx_a, top_K);
-
-    printf("Top-K nodes (h): ");
-    print_vec_d(sorted_idx_h, top_K);
-
-    degs = (int *)malloc(sizeof(int) * top_K);
-    for (k = 0; k < top_K; ++k) {
-      i = sorted_idx_a[k];
-      degs[k] = row_ptr_t[i + 1] - row_ptr_t[i];
-    }
-    printf("Degree distribution (a): ");
-    print_vec_d(degs, top_K);
-
-    /* Creating CSV file for storing the results */
-    sprintf(fname_topk_jac, "%s_k%d_a.csv", fname, top_K);
-
-    if ((pf = fopen(fname_topk_jac, "w")) == NULL) {
-      fprintf(stderr, " [ERROR] cannot open output file \"%s\"\n",
-              fname_topk_jac);
-      exit(EXIT_FAILURE);
-    }
-    fprintf(pf, "n1,n2,jac\n");
-
-    /* Computing Jaccard with a */
-    for (i = 0; i < top_K; ++i) {
-      for (j = i + 1; j < top_K; ++j) {
-        int ii = row_ptr_t[sorted_idx_a[i]], ij = row_ptr_t[sorted_idx_a[j]];
-        int iie = row_ptr_t[sorted_idx_a[i] + 1],
-            ije = row_ptr_t[sorted_idx_a[j] + 1];
-        size_int = 0;
-        size_uni = 0;
-        while (ii < iie && ij < ije) {
-          if (col_ind_t[ii] < col_ind_t[ij]) {
-            ++ii;
-          } else if (col_ind_t[ii] > col_ind_t[ij]) {
-            ++ij;
-          } else {
-            ++size_int;
-            ++ii;
-            ++ij;
-          }
-          ++size_uni;
-        }
-        while (ii < iie) {
-          ++ii;
-          ++size_uni;
-        }
-        while (ij < ije) {
-          ++ij;
-          ++size_uni;
-        }
-        jaccard_coefficient = ((double)size_int) / ((double)size_uni);
-        jaccard_coefficients_a[i][j] = jaccard_coefficient;
-        jaccard_coefficients_a[j][i] = jaccard_coefficient;
-        printf("J(%d,%d) = %.3f\n", sorted_idx_a[i], sorted_idx_a[j],
-               jaccard_coefficient);
-        fprintf(pf, "%d,%d,%.3f\n", sorted_idx_a[i], sorted_idx_a[j],
-                jaccard_coefficient);
-      }
-    }
-    fclose(pf);
-    printf("\n");
-
-    /* Computing Jaccard with h */
-    for (k = 0; k < top_K; ++k) {
-      i = sorted_idx_h[k];
-      degs[k] = row_ptr_t[i + 1] - row_ptr_t[i];
-    }
-    printf("Degree distribution (h): ");
-    print_vec_d(degs, top_K);
-
-    for (i = 0; i < top_K; ++i) {
-      for (j = i; j < top_K; ++j) {
-        size_int = 0;
-        size_uni = 0;
-
-        ii = row_ptr_t[sorted_idx_h[i]];
-        jj = row_ptr_t[sorted_idx_h[j]];
-        while (ii < row_ptr_t[i + 1] && jj < row_ptr_t[j + 1]) {
-          if (col_ind_t[ii] < col_ind_t[jj]) {
-            ++ii;
-          } else if (col_ind_t[ii] < col_ind_t[jj]) {
-            ++jj;
-          } else {
-            ++size_int;
-            ++ii;
-            ++jj;
-          }
-          ++size_uni;
-        }
-        jaccard_coefficient = ((double)size_int) / ((double)size_uni);
-        jaccard_coefficients_h[i][j] = jaccard_coefficient;
-        jaccard_coefficients_h[j][i] = jaccard_coefficient;
-      }
-    }
-
-    free(degs);
-
-    for (i = 0; i < top_K; ++i) {
-      free(jaccard_coefficients_a[i]);
-      free(jaccard_coefficients_h[i]);
-    }
-    free(jaccard_coefficients_a);
-    free(jaccard_coefficients_h);
-    free(sorted_idx_a);
-    free(sorted_idx_h);
+    printf("Computing Jaccard on a\n");
+    compute_jaccard(a, row_ptr_t, col_ind_t, no_nodes, top_K, fname, "a");
+    printf("\nComputing Jaccard on h\n");
+    compute_jaccard(h, row_ptr_t, col_ind_t, no_nodes, top_K, fname, "h");
   }
 
   /* un-mmapping data */
