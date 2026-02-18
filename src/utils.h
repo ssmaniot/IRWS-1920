@@ -19,11 +19,11 @@ typedef struct {
 } CSR_data;
 
 /* Helper functions */
-int write_data(char path[], void *data, size_t nmemb, size_t size);
-void delete_folder(char dir[]);
-void *mmap_data(char path[], size_t nmemb, size_t size);
-void print_vec_f(double *v, int n);
-void print_vec_d(int *v, int n);
+int write_data(const char path[], const void *data, size_t nmemb, size_t size);
+void delete_folder(const char dir[]);
+void *mmap_data(const char path[], size_t nmemb, size_t size);
+void print_vec_f(const double *v, int n);
+void print_vec_d(const int *v, int n);
 void double_merge(int *from, int *to, int lo, int mid, int hi);
 void double_merge_sort(int *from, int *to, int lo, int hi);
 void sort_input_data(int *from, int *to, int n);

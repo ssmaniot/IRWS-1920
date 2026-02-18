@@ -215,7 +215,6 @@ int main(int argc, char *argv[]) {
 void perform_compression(const char dataset_path[FNAME]) {
   /* Reading data from input file */
   FILE *pf;
-  int no_nodes, no_edges;
   char *s = NULL;
   size_t slen = 0;
   ssize_t bytes;
@@ -225,9 +224,6 @@ void perform_compression(const char dataset_path[FNAME]) {
   int i;
   int err;
 
-  /* LCSR matrix representation */
-  int *col_ind, *col_ind_t;
-  int *row_ptr, *row_ptr_t;
   printf(
       "Input file data \"%s\" is not compressed, ready to perform "
       "compression...\n\n",

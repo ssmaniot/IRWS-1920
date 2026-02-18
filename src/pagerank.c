@@ -188,7 +188,6 @@ int main(int argc, char *argv[]) {
 void perform_compression(const char dataset_path[FNAME]) {
   /* Reading data from input file */
   FILE *pf;
-  int no_nodes, no_edges;
   char *s = NULL;
   size_t slen = 0;
   ssize_t bytes;
@@ -197,15 +196,6 @@ void perform_compression(const char dataset_path[FNAME]) {
   int f, t;
   int i, j;
   int *out_links;
-
-  /* CSR matrix representation */
-  double *val = NULL;
-  int *col_ind = NULL;
-  int *row_ptr = NULL;
-
-  /* Pagerank computation data */
-  int *danglings = NULL;
-  int no_danglings;
   int err;
 
   /* Time elapsed data */

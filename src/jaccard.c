@@ -4,7 +4,7 @@
 #include "jaccard.h"
 #include "utils.h"
 
-void compute_jaccard(double *v, int *row_ptr_t, int *col_ind_t, int no_nodes,
+void compute_jaccard(const double *v, const int *row_ptr_t, const int *col_ind_t, int no_nodes,
                      int top_K, const char *fname, const char *method) {
   FILE *pf = NULL;
   double **jaccard_coefficients = NULL;

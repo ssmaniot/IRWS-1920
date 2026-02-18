@@ -9,7 +9,7 @@
 
 /* Helper functions */
 
-int write_data(char path[], void *data, size_t nmemb, size_t size) {
+int write_data(const char path[], const void *data, size_t nmemb, size_t size) {
   FILE *pdata;
 
   if ((pdata = fopen(path, "wb")) == NULL) {
@@ -21,9 +21,9 @@ int write_data(char path[], void *data, size_t nmemb, size_t size) {
   return EXIT_SUCCESS;
 }
 
-void delete_folder(char dir[]) {
+void delete_folder(const char dir[]) {
   DIR *pf = opendir(dir);
-  struct dirent *next_file;
+  const struct dirent *next_file;
   char fpath[PATH];
 
   while ((next_file = readdir(pf)) != NULL) {
@@ -34,7 +34,7 @@ void delete_folder(char dir[]) {
   rmdir(dir);
 }
 
-void *mmap_data(char path[], size_t nmemb, size_t size) {
+void *mmap_data(const char path[], size_t nmemb, size_t size) {
   int fd;
   char mmap_p[MMAP];
   void *mp;
@@ -49,14 +49,14 @@ void *mmap_data(char path[], size_t nmemb, size_t size) {
   return mp;
 }
 
-void print_vec_f(double *v, int n) {
+void print_vec_f(const double *v, int n) {
   int i;
   printf("[ ");
   for (i = 0; i < n; ++i) printf("%.3f ", v[i]);
   printf("]\n");
 }
 
-void print_vec_d(int *v, int n) {
+void print_vec_d(const int *v, int n) {
   int i;
   printf("[ ");
   for (i = 0; i < n; ++i) printf("%d ", v[i]);
@@ -130,13 +130,6 @@ void double_merge_sort(int *from, int *to, int lo, int hi) {
 
 void sort_input_data(int *from, int *to, int n) {
   double_merge_sort(from, to, 0, n);
-}
-
-int cmp_ptr(const void *a, const void *b) {
-  const double *L = (const double *)a;
-  const double *R = (const double *)b;
-
-  return (*R < *L) - (*L < *R);
 }
 
 #define SWAP(v, i, j) \
