@@ -27,6 +27,6 @@ void print_vec_d(const int *v, int n);
 void double_merge(int *from, int *to, int lo, int mid, int hi);
 void double_merge_sort(int *from, int *to, int lo, int hi);
 void sort_input_data(int *from, int *to, int n);
-int *index_sort_top_K(const double *v, size_t n, int top_K);
+int *index_sort_top_K(const double *v, int n, int top_K);
 
 #endif

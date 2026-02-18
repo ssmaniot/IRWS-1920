@@ -139,7 +139,7 @@ void sort_input_data(int *from, int *to, int n) {
     v[j] = tmp;        \
   } while (0)
 
-int *index_sort_top_K(const double *v, size_t n, int top_K) {
+int *index_sort_top_K(const double *v, int n, int top_K) {
   int i, j;
   int *idx = (int *)malloc(top_K * sizeof(int));
 

@@ -1,5 +1,5 @@
 CC := gcc
-override CFLAGS += --std=gnu89 -Wall -pedantic -O3
+override CFLAGS += --std=gnu89 -Wall -Wextra -pedantic -O3
 LDFLAGS := -lm
 
 EXEC := pagerank hits
